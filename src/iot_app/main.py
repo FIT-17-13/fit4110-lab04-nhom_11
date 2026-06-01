@@ -105,16 +105,28 @@ def build_problem(
     return problem
 
 
-@app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    """Handle HTTPException and return ProblemDetails format."""
     if isinstance(exc.detail, dict):
         problem = exc.detail
     else:
+        # Determine problem type based on status code
+        problem_type = "about:blank"
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            problem_type = "https://smart-campus.local/problems/unauthorized"
+            title = "Unauthorized"
+        elif exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
+            problem_type = "https://smart-campus.local/problems/validation-error"
+            title = "Validation error"
+        else:
+            title = status.HTTP_STATUS_CODES.get(exc.status_code, "HTTP Error")
+        
         problem = build_problem(
             status_code=exc.status_code,
-            title=status.HTTP_STATUS_CODES.get(exc.status_code, "HTTP Error"),
+            title=title,
             detail=str(exc.detail),
             instance=str(request.url.path),
+            problem_type=problem_type,
         )
 
     problem.setdefault("status", exc.status_code)
@@ -131,10 +143,10 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     )
 
 
-@app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
+    """Handle RequestValidationError and return ProblemDetails format."""
     first_error = exc.errors()[0] if exc.errors() else {}
     location = ".".join(str(item) for item in first_error.get("loc", []))
     message = first_error.get("msg", "Request validation error")
@@ -153,29 +165,22 @@ async def validation_exception_handler(
     )
 
 
-def verify_bearer_token(authorization: Optional[str] = Header(default=None)) -> None:
+def verify_bearer_token(authorization: Optional[str] = Header(default=None)) -> str:
+    """Verify bearer token and return it, or raise 401 if invalid."""
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=build_problem(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                title="Unauthorized",
-                detail="Missing Authorization header",
-                problem_type="https://smart-campus.local/problems/unauthorized",
-            ),
+            detail="Missing Authorization header",
         )
 
     expected = f"Bearer {AUTH_TOKEN}"
     if authorization != expected:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=build_problem(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                title="Unauthorized",
-                detail="Invalid bearer token",
-                problem_type="https://smart-campus.local/problems/unauthorized",
-            ),
+            detail="Invalid bearer token",
         )
+    
+    return authorization
 
 
 def now_iso() -> str:
@@ -263,3 +268,8 @@ def get_reading(reading_id: str) -> Dict:
             problem_type="https://smart-campus.local/problems/not-found",
         ),
     )
+
+
+# Explicitly register exception handlers at application level
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
