@@ -32,17 +32,23 @@ jobs:
             -p 8000:8000 \
             --env-file .env.example \
             fit4110/iot-ingestion:lab04
-          sleep 10
+          sleep 15
 
-      - name: Debug container status
+      - name: Check container and wait for health
         run: |
-          echo "=== Docker ps ===" && docker ps -a --filter "name=fit4110-iot-lab04" && \
-          echo "=== Container logs ===" && docker logs fit4110-iot-lab04 || true && \
-          echo "=== Port check ===" && netstat -tulpn | grep 8000 || echo "Port not listening" && \
-          echo "=== Direct curl test ===" && curl -v http://localhost:8000/health || echo "Curl failed"
-
-      - name: Wait for service health
-        run: npx wait-on http://localhost:8000/health --timeout 120000 --interval 5000
+          echo "=== Docker ps ===" 
+          docker ps -a --filter "name=fit4110-iot-lab04"
+          echo "=== Initial container logs ===" 
+          docker logs fit4110-iot-lab04 || echo "No logs yet"
+          echo "=== Waiting for health endpoint ==="
+          for i in {1..30}; do
+            echo "Attempt $i/30"
+            curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost:8000/health && break
+            docker logs fit4110-iot-lab04 | tail -5
+            sleep 4
+          done
+          echo "=== Final health check ==="
+          curl -v http://localhost:8000/health
 
       - name: Prepare reports directory
         run: mkdir -p reports
