@@ -32,9 +32,10 @@ jobs:
             -p 8000:8000 \
             --env-file .env.example \
             fit4110/iot-ingestion:lab04
+          sleep 5
 
       - name: Wait for service health
-        run: npx wait-on http://localhost:8000/health --timeout 30000
+        run: npx wait-on http://localhost:8000/health --timeout 60000
 
       - name: Prepare reports directory
         run: mkdir -p reports
