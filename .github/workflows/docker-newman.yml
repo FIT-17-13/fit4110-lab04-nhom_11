@@ -37,6 +37,9 @@ jobs:
       - name: Wait for service health
         run: npx wait-on http://localhost:8000/health --timeout 30000
 
+      - name: Prepare reports directory
+        run: mkdir -p reports
+
       - name: Run Newman against Docker container
         run: npm run test:local
 
