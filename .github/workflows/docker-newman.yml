@@ -57,3 +57,4 @@ jobs:
         with:
           name: lab04-newman-reports
           path: reports/
+          if-no-files-found: warn
