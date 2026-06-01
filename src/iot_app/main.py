@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from http import HTTPStatus
 from pydantic import BaseModel, Field
 
 
@@ -119,7 +120,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
             problem_type = "https://smart-campus.local/problems/validation-error"
             title = "Validation error"
         else:
-            title = status.HTTP_STATUS_CODES.get(exc.status_code, "HTTP Error")
+            title = HTTPStatus(exc.status_code).phrase
         
         problem = build_problem(
             status_code=exc.status_code,
@@ -130,7 +131,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         )
 
     problem.setdefault("status", exc.status_code)
-    problem.setdefault("title", status.HTTP_STATUS_CODES.get(exc.status_code, "HTTP Error"))
+    problem.setdefault("title", HTTPStatus(exc.status_code).phrase)
     problem.setdefault("type", "about:blank")
     problem.setdefault("detail", "Request failed")
     problem.setdefault("instance", str(request.url.path))
